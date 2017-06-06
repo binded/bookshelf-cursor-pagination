@@ -1,0 +1,28 @@
+{
+  "name": "bookshelf-cursor-pagination",
+  "version": "1.0.0",
+  "description": "",
+  "main": "index.js",
+  "scripts": {
+    "build": "babel -q -D ./src/ --out-dir ./lib/",
+    "lint": "eslint src/ test/",
+    "test": "npm run lint && mocha test/index.js",
+    "prepublish": "npm run build"
+  },
+  "author": "Oli Lalonde <oli@binded.com> (https://binded.com/)",
+  "license": "ISC",
+  "devDependencies": {
+    "babel-cli": "^6.24.1",
+    "babel-preset-binded": "^1.1.0",
+    "bookshelf": "^0.10.3",
+    "chai": "^4.0.2",
+    "eslint": "^3.19.0",
+    "eslint-config-binded": "^1.0.3",
+    "knex": "^0.13.0",
+    "mocha": "^3.4.2",
+    "pg": "^6.2.3"
+  },
+  "dependencies": {
+    "lodash": "^4.17.4"
+  }
+}

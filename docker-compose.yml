@@ -1,0 +1,14 @@
+db:
+  image: postgres:9.5
+  ports:
+    - "5432:5432"
+
+createdb:
+  image: postgres:9.5
+  links:
+    - db
+  command: >
+    /bin/bash -c "
+      while ! psql --host=db --username=postgres; do sleep 1; done;
+      psql --host=db --username=postgres -c 'CREATE DATABASE \"bookshelf-test\";';
+    "
