@@ -2,6 +2,7 @@
   "globals": {
     "describe": true,
     "it": true,
+    "xit": true,
     "expect": true,
     "before": true
   },

@@ -51,6 +51,7 @@ const setup = async () => {
   await recreateDatabase()
   const knex = createKnex()
   const bookshelf = initBookshelf(knex)
+  bookshelf.plugin('pagination')
   bookshelf.plugin(fetchCursorPagePlugin)
   const models = initModels(bookshelf)
   await setupDb(knex)
@@ -59,17 +60,35 @@ const setup = async () => {
 
 describe('Cursor pagination', () => {
   let models
-  let knex
+  let Car
+  // let knex
   let bookshelf
 
   before(async () => {
     const result = await setup()
     models = result.models
+    Car = models.Car
     bookshelf = result.bookshelf
-    knex = result.knex
+    // knex = result.knex
   })
 
   it('should have fetchCursorPage function', () => {
     assert.equal(typeof bookshelf.Model.prototype.fetchCursorPage, 'function')
+  })
+
+  it('Model#fetchCursorPage() should return results from database', async () => {
+    const result = await Car.collection().fetchCursorPage()
+    assert.equal(result.models.length, 10)
+    assert.equal(result.pagination.rowCount, 27)
+    assert.equal(result.pagination.limit, 10)
+    // assert.equal(typeof result.pagination.cursors, 'object')
+    // console.log(result)
+  })
+
+  it('Model#fetchCursorPage() with custom orderBy', async () => {
+    const result = await Car
+      .collection()
+      .orderBy('description')
+      .fetchCursorPage()
   })
 })

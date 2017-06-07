@@ -2,16 +2,12 @@ import { remove, assign } from 'lodash'
 
 const DEFAULT_LIMIT = 10
 
-function ensureIntWithDefault(val, def) {
-  if (!val) {
-    return def
-  }
-
+const ensurePositiveIntWithDefault = (val, def) => {
+  if (!val) return def
   const _val = parseInt(val, 10)
   if (Number.isNaN(_val)) {
     return def
   }
-
   return _val
 }
 
@@ -92,29 +88,32 @@ export default (bookshelf) => {
    *    {@link Model#fetchAll}
    * @returns {Promise<Model|null>}
    */
-  const fetchCursorPage = (options = {}) => {
+  const fetchCursorPage = ({
+    self,
+    collection,
+    Model,
+  }, options = {}) => {
     const { limit, ...fetchOptions } = options
 
-    const _limit = ensureIntWithDefault(limit, DEFAULT_LIMIT)
+    const _limit = ensurePositiveIntWithDefault(limit, DEFAULT_LIMIT)
 
-    const tableName = this.constructor.prototype.tableName
-    const idAttribute = this.constructor.prototype.idAttribute ?
-      this.constructor.prototype.idAttribute : 'id'
+    const tableName = Model.prototype.tableName
+    const idAttribute = Model.prototype.idAttribute ?
+      Model.prototype.idAttribute : 'id'
 
     const paginate = () => {
-      // const pageQuery = clone(this.query())
-      const pager = this.constructor.forge()
+      // const pageQuery = clone(model.query())
+      const pager = collection
 
       return pager
-
         .query(qb => {
-          assign(qb, this.query().clone())
+          assign(qb, self.query().clone())
           qb.limit.apply(qb, [_limit])
           // qb.offset.apply(qb, [_offset])
           return null
         })
 
-      .fetchAll(fetchOptions)
+      .fetch(fetchOptions)
     }
 
     const count = () => {
@@ -124,10 +123,10 @@ export default (bookshelf) => {
         'groupByBasic',
         'groupByRaw',
       ]
-      const counter = this.constructor.forge()
+      const counter = Model.forge()
 
       return counter.query(qb => {
-        assign(qb, this.query().clone())
+        assign(qb, self.query().clone())
 
         // Remove grouping and ordering. Ordering is unnecessary
         // for a count, and grouping returns the entire result set
@@ -156,7 +155,7 @@ export default (bookshelf) => {
       })
     }
 
-    return Promise.join(paginate(), count())
+    return Promise.all([paginate(), count()])
       .then(([rows, metadata]) => {
         const pageCount = Math.ceil(metadata.rowCount / _limit)
         const pageData = assign(metadata, { pageCount })
@@ -164,13 +163,23 @@ export default (bookshelf) => {
       })
   }
 
-  bookshelf.Model.prototype.fetchCursorPage = fetchCursorPage
+  bookshelf.Model.prototype.fetchCursorPage = function modelFetchCursorPage(...args) {
+    return fetchCursorPage({
+      self: this,
+      Model: this.constructor,
+      collection: () => this.collection(),
+    }, ...args)
+  }
 
-  bookshelf.Model.fetchCursorPage = function modelFetchCursorPage(...args) {
+  bookshelf.Model.fetchCursorPage = function staticModelFetchCursorPage(...args) {
     return this.forge().fetchCursorPage(...args)
   }
 
   bookshelf.Collection.prototype.fetchCursorPage = function collectionFetchCursorPage(...args) {
-    return fetchCursorPage.apply(this.model.forge(), ...args)
+    return fetchCursorPage({
+      self: this,
+      Model: this.model,
+      collection: this,
+    }, ...args)
   }
 }
