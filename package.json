@@ -6,7 +6,9 @@
   "scripts": {
     "build": "babel -q -D ./src/ --out-dir ./lib/",
     "lint": "eslint src/ test/",
-    "test": "npm run lint && mocha test/index.js",
+    "test": "npm run lint && npm run test:fast",
+    "test:fast": "mocha test/index.js",
+    "test:watch": "nodemon --exec mocha test/index.js",
     "prepublish": "npm run build"
   },
   "author": "Oli Lalonde <oli@binded.com> (https://binded.com/)",
@@ -20,7 +22,9 @@
     "eslint-config-binded": "^1.0.3",
     "knex": "^0.13.0",
     "mocha": "^3.4.2",
-    "pg": "^6.2.3"
+    "nodemon": "^1.11.0",
+    "pg": "^6.2.3",
+    "pgtools": "^0.2.3"
   },
   "dependencies": {
     "lodash": "^4.17.4"

@@ -1,6 +1,6 @@
-DROP DATABASE cursor_pagination_test;
-CREATE DATABASE cursor_pagination_test;
-\c cursor_pagination_test;
+-- DROP DATABASE cursor_pagination_test;
+-- CREATE DATABASE cursor_pagination_test;
+-- \c cursor_pagination_test;
 
 CREATE TABLE manufacturers (
   id bigserial primary key,
