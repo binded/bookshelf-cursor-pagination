@@ -11,6 +11,106 @@ const ensurePositiveIntWithDefault = (val, def) => {
   return _val
 }
 
+
+const count = (self, Model, tableName, idAttribute, limit) => {
+  const notNeededQueries = [
+    'orderByBasic',
+    'orderByRaw',
+    'groupByBasic',
+    'groupByRaw',
+  ]
+  const counter = Model.forge()
+
+  return counter.query(qb => {
+    assign(qb, self.query().clone())
+
+    // Remove grouping and ordering. Ordering is unnecessary
+    // for a count, and grouping returns the entire result set
+    // What we want instead is to use `DISTINCT`
+    remove(qb._statements, statement => (
+      (notNeededQueries.indexOf(statement.type) > -1) ||
+        statement.grouping === 'columns'
+    ))
+    qb.countDistinct.apply(qb, [`${tableName}.${idAttribute}`])
+  }).fetchAll().then(result => {
+    const metadata = { limit }
+
+    if (result && result.length === 1) {
+      // We shouldn't have to do this, instead it should be
+      // result.models[0].get('count')
+      // but SQLite uses a really strange key name.
+      const modelsCount = result.models[0]
+      const keys = Object.keys(modelsCount.attributes)
+      if (keys.length === 1) {
+        const key = Object.keys(modelsCount.attributes)[0]
+        metadata.rowCount = parseInt(modelsCount.attributes[key], 10)
+      }
+    }
+
+    return metadata
+  })
+}
+
+const reverseSign = (sign) => ({ '>': '<', '<': '>' }[sign])
+
+const applyCursor = (qb, cursor, mainTableName) => {
+  const sortedColumns = qb._statements
+    .filter(s => s.type === 'orderByBasic')
+    .map(({ value, ...other }) => {
+      const [tableName, colName] = value.split('.')
+      if (tableName !== mainTableName) {
+        throw new Error('sorting by joined table not supported by cursor paging yet')
+      }
+      return { name: colName, ...other }
+    })
+
+  if (sortedColumns.length !== cursor.columnValues.length) {
+    throw new Error('sort/cursor mismatch')
+  }
+
+  const buildWhere = ([currentCol, ...remainingCols], visitedCols = []) => {
+    const { name, direction } = currentCol
+    const index = visitedCols.length
+    const cursorValue = cursor.columnValues[index]
+    const cursorType = cursor.type
+    let sign = '>'
+    if (cursorType === 'before') {
+      sign = reverseSign(sign)
+    }
+    if (direction === 'DESC') {
+      sign = reverseSign(sign)
+    }
+    /* eslint-disable func-names */
+    qb.orWhere(function () {
+      visitedCols.forEach((visitedCol, idx) => {
+        this.andWhere(visitedCol.name, '=', cursor.columnValues[idx])
+      })
+      this.andWhere(name, sign, cursorValue)
+    })
+    if (!remainingCols.length) return
+    return buildWhere(remainingCols, [...visitedCols, currentCol])
+  }
+
+  buildWhere(sortedColumns)
+
+  // This will only work if column name === attribute name
+  const model2cursor = (model) => sortedColumns.map(({ name }) => model.get(name))
+
+  const extractCursors = (coll) => {
+    if (!coll.length) return {}
+    const before = model2cursor(coll.models[0])
+    const after = model2cursor(coll.models[coll.length - 1])
+    return { after, before }
+  }
+  return extractCursors
+}
+
+const ensureArray = (val) => {
+  if (!Array.isArray(val)) {
+    throw new Error(`${val} is not an array`)
+  }
+}
+
 /**
  * Exports a plugin to pass into the bookshelf instance, i.e.:
  *
@@ -95,6 +195,17 @@ export default (bookshelf) => {
   }, options = {}) => {
     const { limit, ...fetchOptions } = options
 
+    const cursor = (() => {
+      if ('after' in options) {
+        ensureArray(options.after)
+        return { type: 'after', columnValues: options.after }
+      } else if ('before' in options) {
+        ensureArray(options.before)
+        return { type: 'before', columnValues: options.before }
+      }
+      return null
+    })()
+
     const _limit = ensurePositiveIntWithDefault(limit, DEFAULT_LIMIT)
 
     const tableName = Model.prototype.tableName
@@ -105,62 +216,36 @@ export default (bookshelf) => {
       // const pageQuery = clone(model.query())
       const pager = collection
 
+      let extractCursors
       return pager
         .query(qb => {
           assign(qb, self.query().clone())
-          qb.limit.apply(qb, [_limit])
-          // qb.offset.apply(qb, [_offset])
-          return null
-        })
-
-      .fetch(fetchOptions)
-    }
-
-    const count = () => {
-      const notNeededQueries = [
-        'orderByBasic',
-        'orderByRaw',
-        'groupByBasic',
-        'groupByRaw',
-      ]
-      const counter = Model.forge()
-
-      return counter.query(qb => {
-        assign(qb, self.query().clone())
-
-        // Remove grouping and ordering. Ordering is unnecessary
-        // for a count, and grouping returns the entire result set
-        // What we want instead is to use `DISTINCT`
-        remove(qb._statements, statement => (
-          (notNeededQueries.indexOf(statement.type) > -1) ||
-            statement.grouping === 'columns'
-        ))
-        qb.countDistinct.apply(qb, [`${tableName}.${idAttribute}`])
-      }).fetchAll().then(result => {
-        const metadata = { limit: _limit }
-
-        if (result && result.length === 1) {
-          // We shouldn't have to do this, instead it should be
-          // result.models[0].get('count')
-          // but SQLite uses a really strange key name.
-          const modelsCount = result.models[0]
-          const keys = Object.keys(modelsCount.attributes)
-          if (keys.length === 1) {
-            const key = Object.keys(modelsCount.attributes)[0]
-            metadata.rowCount = parseInt(modelsCount.attributes[key], 10)
+          if (cursor) {
+            extractCursors = applyCursor(qb, cursor, tableName)
           }
-        }
-
-        return metadata
-      })
+          qb.limit(_limit)
+        })
+        .fetch(fetchOptions)
+        .then(coll => {
+          const cursors = extractCursors(coll)
+          return { coll, cursors }
+        })
     }
 
-    return Promise.all([paginate(), count()])
-      .then(([rows, metadata]) => {
-        const pageCount = Math.ceil(metadata.rowCount / _limit)
-        const pageData = assign(metadata, { pageCount })
-        return assign(rows, { pagination: pageData })
+    return Promise.all([
+      paginate(),
+      count(self, Model, tableName, idAttribute, _limit),
+    ])
+    .then(([{ coll, cursors }, metadata]) => {
+      const pageCount = Math.ceil(metadata.rowCount / _limit)
+      const pageData = assign(metadata, { pageCount })
+      return assign(coll, {
+        pagination: {
+          ...pageData,
+          cursors,
+        },
       })
+    })
   }
 
   bookshelf.Model.prototype.fetchCursorPage = function modelFetchCursorPage(...args) {
