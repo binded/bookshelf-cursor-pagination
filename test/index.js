@@ -14,7 +14,15 @@ const recreateDatabase = async () => {
   const config = {
     host: process.env.DATABASE_HOST || 'localhost',
   }
-  await dropdb(config, 'cursor_pagination_test')
+  try {
+    await dropdb(config, 'cursor_pagination_test')
+  } catch (err) {
+    if (err.pgErr && err.pgErr.code === '3D000') {
+      // ignore 'database does not exist error'
+    } else {
+      throw err
+    }
+  }
   await createdb(config, 'cursor_pagination_test')
 }
 
