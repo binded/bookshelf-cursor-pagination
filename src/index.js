@@ -53,20 +53,29 @@ const count = (self, Model, tableName, idAttribute, limit) => {
 
 const reverseSign = (sign) => ({ '>': '<', '<': '>' }[sign])
 
-const applyCursor = (qb, cursor, mainTableName) => {
+const applyCursor = (qb, cursor, mainTableName, idAttribute) => {
+  const isNotSorted = qb._statements
+    .filter(s => s.type === 'orderByBasic')
+    .length === 0
+
+  // We implicitly sort by ID asc
+  if (isNotSorted) {
+    qb.orderBy(`${mainTableName}.${idAttribute}`)
+  }
+
   const sortedColumns = qb._statements
     .filter(s => s.type === 'orderByBasic')
     .map(({ value, ...other }) => {
       const [tableName, colName] = value.split('.')
+      if (typeof colName === 'undefined') {
+        // not prefixed by table name
+        return { name: tableName, ...other }
+      }
       if (tableName !== mainTableName) {
         throw new Error('sorting by joined table not supported by cursor paging yet')
       }
       return { name: colName, ...other }
     })
-
-  if (sortedColumns.length !== cursor.columnValues.length) {
-    throw new Error('sort/cursor mismatch')
-  }
 
   const buildWhere = ([currentCol, ...remainingCols], visitedCols = []) => {
     const { name, direction } = currentCol
@@ -91,7 +100,12 @@ const applyCursor = (qb, cursor, mainTableName) => {
     return buildWhere(remainingCols, [...visitedCols, currentCol])
   }
 
-  buildWhere(sortedColumns)
+  if (cursor) {
+    if (sortedColumns.length !== cursor.columnValues.length) {
+      throw new Error('sort/cursor mismatch')
+    }
+    buildWhere(sortedColumns)
+  }
 
   // This will only work if column name === attribute name
   const model2cursor = (model) => sortedColumns.map(({ name }) => model.get(name))
@@ -220,9 +234,7 @@ export default (bookshelf) => {
       return pager
         .query(qb => {
           assign(qb, self.query().clone())
-          if (cursor) {
-            extractCursors = applyCursor(qb, cursor, tableName)
-          }
+          extractCursors = applyCursor(qb, cursor, tableName, idAttribute)
           qb.limit(_limit)
         })
         .fetch(fetchOptions)

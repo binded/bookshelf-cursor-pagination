@@ -83,8 +83,8 @@ describe('Cursor pagination', () => {
     assert.equal(result.pagination.limit, 10)
     const { cursors } = result.pagination
     assert.equal(typeof cursors, 'object')
-    assert.equal(cursors.before, ['1'])
-    assert.equal(cursors.after, ['10'])
+    assert.deepEqual(cursors.before, ['1'])
+    assert.deepEqual(cursors.after, ['10'])
   })
 
   it('Model#fetchCursorPage() with limit', async () => {
@@ -96,11 +96,11 @@ describe('Cursor pagination', () => {
     assert.equal(result.pagination.limit, 5)
     const { cursors } = result.pagination
     assert.equal(typeof cursors, 'object')
-    assert.equal(cursors.before, ['1'])
-    assert.equal(cursors.after, ['5'])
+    assert.deepEqual(cursors.before, ['1'])
+    assert.deepEqual(cursors.after, ['5'])
   })
 
-  it.only('Model#fetchCursorPage() with orderBy and after', async () => {
+  it('Model#fetchCursorPage() with orderBy and after', async () => {
     const result = await Car.collection()
       .orderBy('manufacturer_id')
       .orderBy('description')
@@ -118,14 +118,14 @@ describe('Cursor pagination', () => {
 
   it('Model#fetchCursorPage() with after', async () => {
     const result = await Car.collection().fetchCursorPage({
-      after: '5',
+      after: ['5'],
     })
     assert.equal(result.models.length, 10)
     assert.equal(result.pagination.rowCount, 27)
     assert.equal(result.pagination.limit, 10)
     const { cursors } = result.pagination
     assert.equal(typeof cursors, 'object')
-    assert.equal(cursors.before, ['6'])
-    assert.equal(cursors.after, ['15'])
+    assert.deepEqual(cursors.before, ['6'])
+    assert.deepEqual(cursors.after, ['15'])
   })
 })
