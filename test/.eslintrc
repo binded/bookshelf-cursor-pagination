@@ -5,10 +5,5 @@
     "xit": true,
     "expect": true,
     "before": true
-  },
-  "rules": {
-    "import/no-extraneous-dependencies": [
-      "error", {"devDependencies": true}
-    ]
   }
 }
