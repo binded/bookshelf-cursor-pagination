@@ -1,7 +1,7 @@
 import initKnex from 'knex'
 import initBookshelf from 'bookshelf'
 import { assert } from 'chai'
-import { promisify } from 'util'
+import promisify from 'es6-promisify'
 import fs from 'fs'
 import path from 'path'
 import { createdb, dropdb } from 'pgtools'
