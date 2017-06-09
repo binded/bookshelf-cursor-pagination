@@ -17,9 +17,7 @@ npm install bookshelf-cursor-pagination
 cursors instead. A cursor is a series of column values that uniquely
 identify the position of a row in a result set. If only the primary ID
 is sorted a cursor is simply the primary ID of a row.
-
 Arguments:
-
 - *limit*: size of page (defaults to 10)
 - *before*: array of values that correspond to sorted columns
 - *after*: array of values that correspond to sorted columns
@@ -65,6 +63,26 @@ console.log(result.pagination)
    [ { name: 'manufacturer_id', direction: 'asc' },
      { name: 'description', direction: 'asc' } ] }
 */
+```
+
+Example of stable iteration with cursors:
+
+```javascript
+// will iterate by batches of 5 until the end
+const iter = async (doSomething, after) => {
+  const coll = await Car.collection()
+    .orderBy('id')
+    .fetchCursorPage({ after, limit: 5 })
+  await doSomething(coll)
+  if (coll.pagination.hasMore) {
+    return iter(doSomething, coll.pagination.cursors.after)
+  }
+}
+
+iter((collection) => {
+  console.log(collection.models.length)
+  // 5
+})
 ```
 
 ## TODO
