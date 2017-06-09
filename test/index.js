@@ -116,6 +116,17 @@ describe('Cursor pagination', () => {
     ])
   })
 
+  it.only('Model#fetchCursorPage() with where clause and before', async () => {
+    const result = await Car.collection()
+      .query(qb => {
+        qb.where('engine_id', '=', 3)
+      })
+      .fetchCursorPage({ after: ['25'] })
+    assert.equal(result.models.length, 0)
+    assert.equal(result.pagination.rowCount, 25)
+    assert.equal(result.pagination.limit, 10)
+  })
+
   it('Model#fetchCursorPage() with limit', async () => {
     const result = await Car.collection().fetchCursorPage({
       limit: 5,

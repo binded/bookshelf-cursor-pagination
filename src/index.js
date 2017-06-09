@@ -90,7 +90,7 @@ const applyCursor = (qb, cursor, mainTableName, idAttribute) => {
       return { name: colName, direction }
     })
 
-  const buildWhere = ([currentCol, ...remainingCols], visitedCols = []) => {
+  const buildWhere = (chain, [currentCol, ...remainingCols], visitedCols = []) => {
     const { name, direction } = currentCol
     const index = visitedCols.length
     const cursorValue = cursor.columnValues[index]
@@ -100,14 +100,14 @@ const applyCursor = (qb, cursor, mainTableName, idAttribute) => {
       sign = reverseSign(sign)
     }
     /* eslint-disable func-names */
-    qb.orWhere(function () {
+    chain.orWhere(function () {
       visitedCols.forEach((visitedCol, idx) => {
         this.andWhere(visitedCol.name, '=', cursor.columnValues[idx])
       })
       this.andWhere(name, sign, cursorValue)
     })
     if (!remainingCols.length) return
-    return buildWhere(remainingCols, [...visitedCols, currentCol])
+    return buildWhere(chain, remainingCols, [...visitedCols, currentCol])
   }
 
   if (cursor) {
@@ -115,7 +115,9 @@ const applyCursor = (qb, cursor, mainTableName, idAttribute) => {
       throw new Error('sort/cursor mismatch')
     }
 
-    buildWhere(sortedColumns)
+    qb.andWhere(function () {
+      buildWhere(this, sortedColumns)
+    })
 
     // "before" is just like after if we reverse the sort order
     if (cursor.type === 'before') {
