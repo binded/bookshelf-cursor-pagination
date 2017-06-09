@@ -2,7 +2,7 @@
 
 # bookshelf-cursor-pagination
 
-Bookshelf plugin that implements cursor based pagination.
+Bookshelf plugin that implements [cursor based pagination](https://www.sitepoint.com/paginating-real-time-data-cursor-based-pagination/).
 
 ## Install
 
@@ -66,3 +66,10 @@ console.log(result.pagination)
      { name: 'description', direction: 'asc' } ] }
 */
 ```
+
+## TODO
+
+- `fetchCursorPage` will break if one of the sorted columns is not
+    accessible via `model.get(colName)` (either because the column is
+    not returned by the select or because the bookshelf object
+    implements a `.format()` method).
