@@ -234,7 +234,6 @@ describe('Cursor pagination', () => {
         .fetchCursorPage({ after, limit: 5 })
       i += coll.length
       iterCount += 1
-      console.log(coll.pagination)
       if (coll.pagination.hasMore) {
         return iter(coll.pagination.cursors.after)
       }
