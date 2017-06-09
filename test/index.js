@@ -89,10 +89,13 @@ describe('Cursor pagination', () => {
     assert.equal(result.models.length, 10)
     assert.equal(result.pagination.rowCount, 27)
     assert.equal(result.pagination.limit, 10)
-    const { cursors } = result.pagination
+    const { cursors, orderedBy } = result.pagination
     assert.equal(typeof cursors, 'object')
     assert.deepEqual(cursors.before, ['1'])
     assert.deepEqual(cursors.after, ['10'])
+    assert.deepEqual(orderedBy, [
+      { name: 'id', direction: 'asc' },
+    ])
   })
 
   it('Model#fetchCursorPage() with limit', async () => {
@@ -102,10 +105,13 @@ describe('Cursor pagination', () => {
     assert.equal(result.models.length, 5)
     assert.equal(result.pagination.rowCount, 27)
     assert.equal(result.pagination.limit, 5)
-    const { cursors } = result.pagination
+    const { cursors, orderedBy } = result.pagination
     assert.equal(typeof cursors, 'object')
     assert.deepEqual(cursors.before, ['1'])
     assert.deepEqual(cursors.after, ['5'])
+    assert.deepEqual(orderedBy, [
+      { name: 'id', direction: 'asc' },
+    ])
   })
 
   it('Model#fetchCursorPage() with orderBy and after', async () => {
@@ -118,10 +124,14 @@ describe('Cursor pagination', () => {
     assert.equal(result.models.length, 10)
     assert.equal(result.pagination.rowCount, 27)
     assert.equal(result.pagination.limit, 10)
-    const { cursors } = result.pagination
+    const { cursors, orderedBy } = result.pagination
     assert.equal(typeof cursors, 'object')
     assert.deepEqual(cursors.before, ['8', 'Impala'])
     assert.deepEqual(cursors.after, ['17', 'Impreza'])
+    assert.deepEqual(orderedBy, [
+      { name: 'manufacturer_id', direction: 'asc' },
+      { name: 'description', direction: 'asc' },
+    ])
   })
 
   it('Model#fetchCursorPage() with after', async () => {
@@ -131,13 +141,16 @@ describe('Cursor pagination', () => {
     assert.equal(result.models.length, 10)
     assert.equal(result.pagination.rowCount, 27)
     assert.equal(result.pagination.limit, 10)
-    const { cursors } = result.pagination
+    const { cursors, orderedBy } = result.pagination
     assert.equal(typeof cursors, 'object')
     assert.deepEqual(result.models.map(m => m.get('id')), [
       '6', '7', '8', '9', '10', '11', '12', '13', '14', '15',
     ])
     assert.deepEqual(cursors.before, ['6'])
     assert.deepEqual(cursors.after, ['15'])
+    assert.deepEqual(orderedBy, [
+      { name: 'id', direction: 'asc' },
+    ])
   })
 
   it('Model#fetchCursorPage() with before', async () => {
@@ -147,13 +160,16 @@ describe('Cursor pagination', () => {
     assert.equal(result.models.length, 10)
     assert.equal(result.pagination.rowCount, 27)
     assert.equal(result.pagination.limit, 10)
-    const { cursors } = result.pagination
+    const { cursors, orderedBy } = result.pagination
     assert.equal(typeof cursors, 'object')
     assert.deepEqual(result.models.map(m => m.get('id')), [
       '11', '10', '9', '8', '7', '6', '5', '4', '3', '2',
     ])
     assert.deepEqual(cursors.before, ['2'])
     assert.deepEqual(cursors.after, ['11'])
+    assert.deepEqual(orderedBy, [
+      { name: 'id', direction: 'asc' },
+    ])
   })
 
   /**
@@ -172,10 +188,14 @@ describe('Cursor pagination', () => {
     assert.equal(result.models.length, 2)
     assert.equal(result.pagination.rowCount, 27)
     assert.equal(result.pagination.limit, 2)
-    const { cursors } = result.pagination
+    const { cursors, orderedBy } = result.pagination
     assert.equal(typeof cursors, 'object')
     assert.deepEqual(cursors.before, ['8', 'Cruze'])
     assert.deepEqual(cursors.after, ['9', 'Escalade'])
+    assert.deepEqual(orderedBy, [
+      { name: 'manufacturer_id', direction: 'asc' },
+      { name: 'description', direction: 'desc' },
+    ])
   })
 
   /**
@@ -194,10 +214,14 @@ describe('Cursor pagination', () => {
     assert.equal(result.models.length, 2)
     assert.equal(result.pagination.rowCount, 27)
     assert.equal(result.pagination.limit, 2)
-    const { cursors } = result.pagination
+    const { cursors, orderedBy } = result.pagination
     assert.equal(typeof cursors, 'object')
     assert.deepEqual(cursors.before, ['6', 'Yukon'])
     assert.deepEqual(cursors.after, ['7', '300'])
+    assert.deepEqual(orderedBy, [
+      { name: 'manufacturer_id', direction: 'asc' },
+      { name: 'description', direction: 'desc' },
+    ])
   })
 
   it('Model#fetchCursorPage() iterate over all rows', async () => {
@@ -210,6 +234,7 @@ describe('Cursor pagination', () => {
         .fetchCursorPage({ after, limit: 5 })
       i += coll.length
       iterCount += 1
+      console.log(coll.pagination)
       if (coll.pagination.hasMore) {
         return iter(coll.pagination.cursors.after)
       }

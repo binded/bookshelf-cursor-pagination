@@ -77,16 +77,17 @@ const applyCursor = (qb, cursor, mainTableName, idAttribute) => {
 
   const sortedColumns = qb._statements
     .filter(s => s.type === 'orderByBasic')
-    .map(({ value, ...other }) => {
+    .map(({ value, direction: _direction }) => {
+      const direction = isDesc(_direction) ? 'desc' : 'asc'
       const [tableName, colName] = value.split('.')
       if (typeof colName === 'undefined') {
         // not prefixed by table name
-        return { name: tableName, ...other }
+        return { name: tableName, direction }
       }
       if (tableName !== mainTableName) {
         throw new Error('sorting by joined table not supported by cursor paging yet')
       }
-      return { name: colName, ...other }
+      return { name: colName, direction }
     })
 
   const buildWhere = ([currentCol, ...remainingCols], visitedCols = []) => {
@@ -135,7 +136,10 @@ const applyCursor = (qb, cursor, mainTableName, idAttribute) => {
     }
     return { after, before }
   }
-  return extractCursors
+  return (coll) => ({
+    cursors: extractCursors(coll),
+    orderedBy: sortedColumns,
+  })
 }
 
 const ensureArray = (val) => {
@@ -249,25 +253,22 @@ export default (bookshelf) => {
       // const pageQuery = clone(model.query())
       const pager = collection
 
-      let extractCursors
+      let extractCursorMetadata
       return pager
         .query(qb => {
           assign(qb, self.query().clone())
-          extractCursors = applyCursor(qb, cursor, tableName, idAttribute)
+          extractCursorMetadata = applyCursor(qb, cursor, tableName, idAttribute)
           qb.limit(_limit)
         })
         .fetch(fetchOptions)
-        .then(coll => {
-          const cursors = extractCursors(coll)
-          return { coll, cursors }
-        })
+        .then(coll => ({ coll, ...extractCursorMetadata(coll) }))
     }
 
     return Promise.all([
       paginate(),
       count(self, Model, tableName, idAttribute, _limit),
     ])
-    .then(([{ coll, cursors }, metadata]) => {
+    .then(([{ coll, cursors, orderedBy }, metadata]) => {
       // const pageCount = Math.ceil(metadata.rowCount / _limit)
       // const pageData = assign(metadata, { pageCount })
       const hasMore = coll.length === limit
@@ -276,6 +277,7 @@ export default (bookshelf) => {
         pagination: {
           ...pageData,
           cursors,
+          orderedBy,
         },
       })
     })

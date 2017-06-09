@@ -60,6 +60,9 @@ console.log(result.pagination)
 { limit: 10,
   rowCount: 27,
   hasMore: true,
-  cursors: { after: [ '17', 'Impreza' ], before: [ '8', 'Impala' ] } }
+  cursors: { after: [ '17', 'Impreza' ], before: [ '8', 'Impala' ] },
+  orderedBy:
+   [ { name: 'manufacturer_id', direction: 'asc' },
+     { name: 'description', direction: 'asc' } ] }
 */
 ```
