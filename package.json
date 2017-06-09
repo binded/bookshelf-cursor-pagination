@@ -2,7 +2,7 @@
   "name": "bookshelf-cursor-pagination",
   "version": "1.0.1",
   "description": "",
-  "main": "index.js",
+  "main": "lib/index.js",
   "scripts": {
     "build": "babel -q -D ./src/ --out-dir ./lib/",
     "lint": "eslint src/ test/",
