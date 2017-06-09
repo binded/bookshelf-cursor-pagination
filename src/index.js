@@ -12,7 +12,7 @@ const ensurePositiveIntWithDefault = (val, def) => {
 }
 
 
-const count = (self, Model, tableName, idAttribute, limit) => {
+const count = (self, origQuery, Model, tableName, idAttribute, limit) => {
   const notNeededQueries = [
     'orderByBasic',
     'orderByRaw',
@@ -22,7 +22,7 @@ const count = (self, Model, tableName, idAttribute, limit) => {
   const counter = Model.forge()
 
   return counter.query(qb => {
-    assign(qb, self.query().clone())
+    assign(qb, origQuery)
 
     // Remove grouping and ordering. Ordering is unnecessary
     // for a count, and grouping returns the entire result set
@@ -232,6 +232,8 @@ export default (bookshelf) => {
   }, options = {}) => {
     const { limit, ...fetchOptions } = options
 
+    const origQuery = self.query().clone()
+
     const cursor = (() => {
       if (options.after) {
         ensureArray(options.after)
@@ -256,7 +258,7 @@ export default (bookshelf) => {
       let extractCursorMetadata
       return pager
         .query(qb => {
-          assign(qb, self.query().clone())
+          assign(qb, origQuery.clone())
           extractCursorMetadata = applyCursor(qb, cursor, tableName, idAttribute)
           qb.limit(_limit)
         })
@@ -266,7 +268,7 @@ export default (bookshelf) => {
 
     return Promise.all([
       paginate(),
-      count(self, Model, tableName, idAttribute, _limit),
+      count(self, origQuery.clone(), Model, tableName, idAttribute, _limit),
     ])
     .then(([{ coll, cursors, orderedBy }, metadata]) => {
       // const pageCount = Math.ceil(metadata.rowCount / _limit)

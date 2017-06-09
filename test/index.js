@@ -98,6 +98,24 @@ describe('Cursor pagination', () => {
     ])
   })
 
+  it('Model#fetchCursorPage() with where clause', async () => {
+    const result = await Car.collection()
+      .query(qb => {
+        qb.where('engine_id', '=', 3)
+      })
+      .fetchCursorPage()
+    assert.equal(result.models.length, 10)
+    assert.equal(result.pagination.rowCount, 25)
+    assert.equal(result.pagination.limit, 10)
+    const { cursors, orderedBy } = result.pagination
+    assert.equal(typeof cursors, 'object')
+    assert.deepEqual(cursors.before, ['1'])
+    assert.deepEqual(cursors.after, ['10'])
+    assert.deepEqual(orderedBy, [
+      { name: 'id', direction: 'asc' },
+    ])
+  })
+
   it('Model#fetchCursorPage() with limit', async () => {
     const result = await Car.collection().fetchCursorPage({
       limit: 5,
