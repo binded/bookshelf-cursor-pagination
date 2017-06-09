@@ -32,7 +32,7 @@ page of results before the row represented by the cursor. `after` means
 we fetch the page of results before the row represented by the cursor.
 
 ```javascript
-import cursorPaginatoin from 'bookshelf-cursor-pagination'
+import cursorPagination from 'bookshelf-cursor-pagination'
 
 // ...
 
