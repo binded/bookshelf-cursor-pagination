@@ -51,6 +51,18 @@ const count = (self, Model, tableName, idAttribute, limit) => {
   })
 }
 
+const isDesc = str => typeof str === 'string' && str.toLowerCase() === 'desc'
+
+const reverseDirection = d => (isDesc(d) ? 'ASC' : 'DESC')
+
+const reverseOrderBy = (qb) => {
+  qb._statements
+    .filter(s => s.type === 'orderByBasic')
+    .forEach(s => {
+      s.direction = reverseDirection(s.direction)
+    })
+}
+
 const reverseSign = (sign) => ({ '>': '<', '<': '>' }[sign])
 
 const applyCursor = (qb, cursor, mainTableName, idAttribute) => {
@@ -60,7 +72,7 @@ const applyCursor = (qb, cursor, mainTableName, idAttribute) => {
 
   // We implicitly sort by ID asc
   if (isNotSorted) {
-    qb.orderBy(`${mainTableName}.${idAttribute}`)
+    qb.orderBy(`${mainTableName}.${idAttribute}`, 'asc')
   }
 
   const sortedColumns = qb._statements
@@ -82,11 +94,8 @@ const applyCursor = (qb, cursor, mainTableName, idAttribute) => {
     const index = visitedCols.length
     const cursorValue = cursor.columnValues[index]
     const cursorType = cursor.type
-    let sign = '>'
+    let sign = isDesc(direction) ? '<' : '>'
     if (cursorType === 'before') {
-      sign = reverseSign(sign)
-    }
-    if (direction === 'DESC') {
       sign = reverseSign(sign)
     }
     /* eslint-disable func-names */
@@ -104,7 +113,13 @@ const applyCursor = (qb, cursor, mainTableName, idAttribute) => {
     if (sortedColumns.length !== cursor.columnValues.length) {
       throw new Error('sort/cursor mismatch')
     }
+
     buildWhere(sortedColumns)
+
+    // "before" is just like after if we reverse the sort order
+    if (cursor.type === 'before') {
+      reverseOrderBy(qb)
+    }
   }
 
   // This will only work if column name === attribute name
@@ -114,6 +129,10 @@ const applyCursor = (qb, cursor, mainTableName, idAttribute) => {
     if (!coll.length) return {}
     const before = model2cursor(coll.models[0])
     const after = model2cursor(coll.models[coll.length - 1])
+    if (cursor && cursor.type === 'before') {
+      // sort is reversed so after is before and before is after
+      return { after: before, before: after }
+    }
     return { after, before }
   }
   return extractCursors
@@ -210,10 +229,10 @@ export default (bookshelf) => {
     const { limit, ...fetchOptions } = options
 
     const cursor = (() => {
-      if ('after' in options) {
+      if (options.after) {
         ensureArray(options.after)
         return { type: 'after', columnValues: options.after }
-      } else if ('before' in options) {
+      } else if (options.before) {
         ensureArray(options.before)
         return { type: 'before', columnValues: options.before }
       }
@@ -249,8 +268,10 @@ export default (bookshelf) => {
       count(self, Model, tableName, idAttribute, _limit),
     ])
     .then(([{ coll, cursors }, metadata]) => {
-      const pageCount = Math.ceil(metadata.rowCount / _limit)
-      const pageData = assign(metadata, { pageCount })
+      // const pageCount = Math.ceil(metadata.rowCount / _limit)
+      // const pageData = assign(metadata, { pageCount })
+      const hasMore = coll.length === limit
+      const pageData = assign(metadata, { hasMore })
       return assign(coll, {
         pagination: {
           ...pageData,

@@ -59,7 +59,7 @@ console.log(result.pagination)
 /*
 { limit: 10,
   rowCount: 27,
-  pageCount: 3,
+  hasMore: true,
   cursors: { after: [ '17', 'Impreza' ], before: [ '8', 'Impala' ] } }
 */
 ```

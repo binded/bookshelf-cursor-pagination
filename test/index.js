@@ -133,7 +133,112 @@ describe('Cursor pagination', () => {
     assert.equal(result.pagination.limit, 10)
     const { cursors } = result.pagination
     assert.equal(typeof cursors, 'object')
+    assert.deepEqual(result.models.map(m => m.get('id')), [
+      '6', '7', '8', '9', '10', '11', '12', '13', '14', '15',
+    ])
     assert.deepEqual(cursors.before, ['6'])
     assert.deepEqual(cursors.after, ['15'])
+  })
+
+  it('Model#fetchCursorPage() with before', async () => {
+    const result = await Car.collection().fetchCursorPage({
+      before: ['12'],
+    })
+    assert.equal(result.models.length, 10)
+    assert.equal(result.pagination.rowCount, 27)
+    assert.equal(result.pagination.limit, 10)
+    const { cursors } = result.pagination
+    assert.equal(typeof cursors, 'object')
+    assert.deepEqual(result.models.map(m => m.get('id')), [
+      '11', '10', '9', '8', '7', '6', '5', '4', '3', '2',
+    ])
+    assert.deepEqual(cursors.before, ['2'])
+    assert.deepEqual(cursors.after, ['11'])
+  })
+
+  /**
+   * select "cars".* from "cars" where ("manufacturer_id" > ?) or
+   * ("manufacturer_id" = ? and "description" < ?) order by
+   * "cars"."manufacturer_id" ASC, "cars"."description" DESC limit ?
+   */
+  it('Model#fetchCursorPage() with DESC orderBy and after', async () => {
+    const result = await Car.collection()
+      .orderBy('manufacturer_id')
+      .orderBy('-description')
+      .fetchCursorPage({
+        limit: 2,
+        after: ['8', 'Impala'],
+      })
+    assert.equal(result.models.length, 2)
+    assert.equal(result.pagination.rowCount, 27)
+    assert.equal(result.pagination.limit, 2)
+    const { cursors } = result.pagination
+    assert.equal(typeof cursors, 'object')
+    assert.deepEqual(cursors.before, ['8', 'Cruze'])
+    assert.deepEqual(cursors.after, ['9', 'Escalade'])
+  })
+
+  /**
+   * select "cars".* from "cars" where ("manufacturer_id" < ?) or
+   * ("manufacturer_id" = ? and "description" > ?) order by
+   * "cars"."manufacturer_id" ASC, "cars"."description" DESC limit ?
+   */
+  it('Model#fetchCursorPage() with orderBy and before', async () => {
+    const result = await Car.collection()
+      .orderBy('manufacturer_id')
+      .orderBy('-description')
+      .fetchCursorPage({
+        limit: 2,
+        before: ['8', 'Impala'],
+      })
+    assert.equal(result.models.length, 2)
+    assert.equal(result.pagination.rowCount, 27)
+    assert.equal(result.pagination.limit, 2)
+    const { cursors } = result.pagination
+    assert.equal(typeof cursors, 'object')
+    assert.deepEqual(cursors.before, ['6', 'Yukon'])
+    assert.deepEqual(cursors.after, ['7', '300'])
+  })
+
+  it('Model#fetchCursorPage() iterate over all rows', async () => {
+    let i = 0
+    let iterCount = 0
+    const iter = async (after) => {
+      const coll = await Car.collection()
+        .orderBy('manufacturer_id')
+        .orderBy('description')
+        .fetchCursorPage({ after, limit: 5 })
+      i += coll.length
+      iterCount += 1
+      if (coll.pagination.hasMore) {
+        return iter(coll.pagination.cursors.after)
+      }
+      return coll
+    }
+    const backIter = async (before) => {
+      const coll = await Car.collection()
+        .orderBy('manufacturer_id')
+        .orderBy('description')
+        .fetchCursorPage({ before, limit: 5 })
+      i += coll.length
+      iterCount += 1
+      if (coll.pagination.hasMore) {
+        return backIter(coll.pagination.cursors.before)
+      }
+      return coll
+    }
+
+    const lastColl = await iter()
+    assert.equal(i, 27)
+    assert.equal(iterCount, 6)
+    i = 0
+    iterCount = 0
+    await backIter(lastColl.pagination.cursors.before)
+    assert.equal(i, 27 - lastColl.length /* 25 */)
+    // TODO: last iteration returns empty result.. maybe
+    // we should overfetch by limit + 1 and only set hasMore if
+    // the result set has limit + 1 elements? the last element would
+    // be truncated from the response
+    assert.equal(iterCount, 6)
   })
 })
