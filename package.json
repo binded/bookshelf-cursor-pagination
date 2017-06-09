@@ -9,7 +9,7 @@
     "test": "npm run lint && npm run test:fast",
     "test:fast": "mocha test/index.js",
     "test:watch": "nodemon --exec mocha test/index.js",
-    "prepublish": "npm run build"
+    "prepublish": "npm test && npm run build"
   },
   "author": "Oli Lalonde <oli@binded.com> (https://binded.com/)",
   "license": "ISC",
