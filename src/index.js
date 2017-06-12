@@ -44,6 +44,10 @@ const count = (self, origQuery, Model, tableName, idAttribute, limit) => {
       if (keys.length === 1) {
         const key = Object.keys(modelsCount.attributes)[0]
         metadata.rowCount = parseInt(modelsCount.attributes[key], 10)
+      } else {
+        // some keys were probably added due to a custom .parse method on the model
+        // fallback to using the "count" attribute
+        metadata.rowCount = parseInt(modelsCount.get('count'), 10)
       }
     }
 
