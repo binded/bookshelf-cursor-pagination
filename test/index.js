@@ -67,14 +67,13 @@ const setup = async () => {
 }
 
 describe('Cursor pagination', () => {
-  let models
   let Car
   // let knex
   let bookshelf
 
   before(async () => {
     const result = await setup()
-    models = result.models
+    const models = result.models
     Car = models.Car
     bookshelf = result.bookshelf
     // knex = result.knex
@@ -94,7 +93,7 @@ describe('Cursor pagination', () => {
     assert.deepEqual(cursors.before, ['1'])
     assert.deepEqual(cursors.after, ['10'])
     assert.deepEqual(orderedBy, [
-      { name: 'id', direction: 'asc' },
+      { name: 'id', direction: 'asc', tableName: 'cars' },
     ])
   })
 
@@ -112,11 +111,11 @@ describe('Cursor pagination', () => {
     assert.deepEqual(cursors.before, ['1'])
     assert.deepEqual(cursors.after, ['10'])
     assert.deepEqual(orderedBy, [
-      { name: 'id', direction: 'asc' },
+      { name: 'id', direction: 'asc', tableName: 'cars' },
     ])
   })
 
-  it.only('Model#fetchCursorPage() with where clause and before', async () => {
+  it('Model#fetchCursorPage() with where clause and before', async () => {
     const result = await Car.collection()
       .query(qb => {
         qb.where('engine_id', '=', 3)
@@ -139,7 +138,7 @@ describe('Cursor pagination', () => {
     assert.deepEqual(cursors.before, ['1'])
     assert.deepEqual(cursors.after, ['5'])
     assert.deepEqual(orderedBy, [
-      { name: 'id', direction: 'asc' },
+      { name: 'id', direction: 'asc', tableName: 'cars' },
     ])
   })
 
@@ -158,8 +157,8 @@ describe('Cursor pagination', () => {
     assert.deepEqual(cursors.before, ['8', 'Impala'])
     assert.deepEqual(cursors.after, ['17', 'Impreza'])
     assert.deepEqual(orderedBy, [
-      { name: 'manufacturer_id', direction: 'asc' },
-      { name: 'description', direction: 'asc' },
+      { name: 'manufacturer_id', direction: 'asc', tableName: 'cars' },
+      { name: 'description', direction: 'asc', tableName: 'cars' },
     ])
   })
 
@@ -178,7 +177,7 @@ describe('Cursor pagination', () => {
     assert.deepEqual(cursors.before, ['6'])
     assert.deepEqual(cursors.after, ['15'])
     assert.deepEqual(orderedBy, [
-      { name: 'id', direction: 'asc' },
+      { name: 'id', direction: 'asc', tableName: 'cars' },
     ])
   })
 
@@ -197,7 +196,7 @@ describe('Cursor pagination', () => {
     assert.deepEqual(cursors.before, ['2'])
     assert.deepEqual(cursors.after, ['11'])
     assert.deepEqual(orderedBy, [
-      { name: 'id', direction: 'asc' },
+      { name: 'id', direction: 'asc', tableName: 'cars' },
     ])
   })
 
@@ -222,8 +221,8 @@ describe('Cursor pagination', () => {
     assert.deepEqual(cursors.before, ['8', 'Cruze'])
     assert.deepEqual(cursors.after, ['9', 'Escalade'])
     assert.deepEqual(orderedBy, [
-      { name: 'manufacturer_id', direction: 'asc' },
-      { name: 'description', direction: 'desc' },
+      { name: 'manufacturer_id', direction: 'asc', tableName: 'cars' },
+      { name: 'description', direction: 'desc', tableName: 'cars' },
     ])
   })
 
@@ -248,8 +247,100 @@ describe('Cursor pagination', () => {
     assert.deepEqual(cursors.before, ['6', 'Yukon'])
     assert.deepEqual(cursors.after, ['7', '300'])
     assert.deepEqual(orderedBy, [
-      { name: 'manufacturer_id', direction: 'asc' },
-      { name: 'description', direction: 'desc' },
+      { name: 'manufacturer_id', direction: 'asc', tableName: 'cars' },
+      { name: 'description', direction: 'desc', tableName: 'cars' },
+    ])
+  })
+
+  it('Model#fetchCursorPage() with join', async () => {
+    const result = await Car.collection()
+      .query(qb => {
+        qb.select('cars.*')
+        qb.select('engines.name as engine_name')
+        /* eslint-disable func-names */
+        qb.leftJoin('engines', function () {
+          this.on('cars.engine_id', '=', 'engines.id')
+        })
+      })
+      .orderBy('manufacturer_id')
+      .orderBy('-description')
+      .fetchCursorPage({
+        limit: 2,
+        before: ['8', 'Impala'],
+      })
+    assert.equal(result.models.length, 2)
+    assert.equal(result.pagination.rowCount, 27)
+    assert.equal(result.pagination.limit, 2)
+    const { cursors, orderedBy } = result.pagination
+    assert.equal(typeof cursors, 'object')
+    assert.deepEqual(cursors.before, ['6', 'Yukon'])
+    assert.deepEqual(cursors.after, ['7', '300'])
+    assert.deepEqual(orderedBy, [
+      { name: 'manufacturer_id', direction: 'asc', tableName: 'cars' },
+      { name: 'description', direction: 'desc', tableName: 'cars' },
+    ])
+  })
+
+  it('Model#fetchCursorPage() with join and sort on joined col', async () => {
+    Car.prototype.toCursorValue = function ({ name, tableName }) {
+      if (tableName === this.tableName) return this.get(name)
+      if (tableName === 'engines' && name === 'name') {
+        return this.get('engine_name')
+      }
+      throw new Error(`cannot extract cursor for ${tableName}.${name}`)
+    }
+    const result = await Car.collection()
+      .query(qb => {
+        qb.select('cars.*')
+        qb.select('engines.name as engine_name')
+        /* eslint-disable func-names */
+        qb.leftJoin('engines', function () {
+          this.on('cars.engine_id', '=', 'engines.id')
+        })
+      })
+      .orderBy('engines.name')
+      .orderBy('id')
+      .fetchCursorPage({
+        limit: 3,
+      })
+    const { models, pagination } = result
+    const { cursors, orderedBy } = pagination
+
+    assert.deepEqual(orderedBy, [
+      { name: 'name', direction: 'asc', tableName: 'engines' },
+      { name: 'id', direction: 'asc', tableName: 'cars' },
+    ])
+
+    assert.equal(models[0].get('engine_name'), 'Diesel')
+    assert.equal(models[1].get('engine_name'), 'Electric')
+    assert.equal(models[2].get('engine_name'), 'Internal Combustion')
+    assert.deepEqual(models.map(m => m.get('description')), [
+      'Jetta', 'Model S', 'Volvo V40',
+    ])
+
+    assert.deepEqual(pagination.cursors, {
+      after: ['Internal Combustion', '1'],
+      before: ['Diesel', '26'],
+    })
+
+    const { models: models2 } = await Car.collection()
+      .query(qb => {
+        qb.select('cars.*')
+        qb.select('engines.name as engine_name')
+        /* eslint-disable func-names */
+        qb.leftJoin('engines', function () {
+          this.on('cars.engine_id', '=', 'engines.id')
+        })
+      })
+      .orderBy('engines.name')
+      .orderBy('id')
+      .fetchCursorPage({
+        after: cursors.after,
+        limit: 3,
+      })
+
+    assert.deepEqual(models2.map(m => m.get('description')), [
+      'Mustang', 'Focus', 'Regal',
     ])
   })
 

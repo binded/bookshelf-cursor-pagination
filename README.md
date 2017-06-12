@@ -60,8 +60,8 @@ console.log(result.pagination)
   hasMore: true,
   cursors: { after: [ '17', 'Impreza' ], before: [ '8', 'Impala' ] },
   orderedBy:
-   [ { name: 'manufacturer_id', direction: 'asc' },
-     { name: 'description', direction: 'asc' } ] }
+   [ { name: 'manufacturer_id', direction: 'asc', tableName: 'cars' },
+     { name: 'description', direction: 'asc', tableName: 'cars' } ] }
 */
 ```
 
@@ -85,9 +85,27 @@ iter((collection) => {
 })
 ```
 
+### Joins and/or .format
+
+`fetchCursorPage` will break if one of the sorted columns is not
+accessible via `model.get(colName)` (either because the column is not
+returned by the select or because the bookshelf object implements a
+`.format()` method).
+
+In order to avoid this issue, you can implement a `toCursorsValue` on
+your model that will handle those edge cases. For example:
+
+```javascript
+Car.prototype.toCursorValue = function ({ name, tableName }) {
+  if (tableName === this.tableName) return this.get(name)
+  if (tableName === 'engines' && name === 'name') {
+    return this.get('engine_name')
+  }
+  throw new Error(`cannot extract cursor for ${tableName}.${name}`)
+}
+```
+
 ## TODO
 
-- `fetchCursorPage` will break if one of the sorted columns is not
-    accessible via `model.get(colName)` (either because the column is
-    not returned by the select or because the bookshelf object
-    implements a `.format()` method).
+- In addition to `pagination` prop, return `next` and `previous`
+    property that fetch the next/previous result set

@@ -82,16 +82,13 @@ const applyCursor = (qb, cursor, mainTableName, idAttribute) => {
       const [tableName, colName] = value.split('.')
       if (typeof colName === 'undefined') {
         // not prefixed by table name
-        return { name: tableName, direction }
+        return { name: tableName, direction, tableName: mainTableName }
       }
-      if (tableName !== mainTableName) {
-        throw new Error('sorting by joined table not supported by cursor paging yet')
-      }
-      return { name: colName, direction }
+      return { name: colName, direction, tableName }
     })
 
   const buildWhere = (chain, [currentCol, ...remainingCols], visitedCols = []) => {
-    const { name, direction } = currentCol
+    const { direction } = currentCol
     const index = visitedCols.length
     const cursorValue = cursor.columnValues[index]
     const cursorType = cursor.type
@@ -99,12 +96,14 @@ const applyCursor = (qb, cursor, mainTableName, idAttribute) => {
     if (cursorType === 'before') {
       sign = reverseSign(sign)
     }
+    const colRef = (col) => `${col.tableName}.${col.name}`
+
     /* eslint-disable func-names */
     chain.orWhere(function () {
       visitedCols.forEach((visitedCol, idx) => {
-        this.andWhere(visitedCol.name, '=', cursor.columnValues[idx])
+        this.andWhere(colRef(visitedCol), '=', cursor.columnValues[idx])
       })
-      this.andWhere(name, sign, cursorValue)
+      this.andWhere(colRef(currentCol), sign, cursorValue)
     })
     if (!remainingCols.length) return
     return buildWhere(chain, remainingCols, [...visitedCols, currentCol])
@@ -126,7 +125,12 @@ const applyCursor = (qb, cursor, mainTableName, idAttribute) => {
   }
 
   // This will only work if column name === attribute name
-  const model2cursor = (model) => sortedColumns.map(({ name }) => model.get(name))
+  const model2cursor = (model) => {
+    if (typeof model.toCursorValue === 'function') {
+      return sortedColumns.map(c => model.toCursorValue(c))
+    }
+    return sortedColumns.map(({ name }) => model.get(name))
+  }
 
   const extractCursors = (coll) => {
     if (!coll.length) return {}
