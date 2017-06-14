@@ -108,4 +108,28 @@ describe('Cursor pagination', () => {
       'The Avengers 2',
     ])
   })
+
+  it('Model#fetchCursorPage() works with null value cursors and DESC', async () => {
+    const next = (after) => Movie.collection()
+      .orderBy('-description')
+      .orderBy('name')
+      .fetchCursorPage({
+        after,
+        limit: 2,
+      })
+
+    const eql = (result, arr) => {
+      assert.deepEqual(result.models.map(m => m.get('name')), arr)
+    }
+
+    let res
+    res = await next()
+    eql(res, ['A Beautiful Mind', 'Forrest Gump'])
+    res = await next(res.pagination.cursors.after)
+    eql(res, ['The Avengers 1', 'The Avengers 2'])
+    res = await next(res.pagination.cursors.after)
+    eql(res, ['Moon', 'Terminator'])
+    res = await next(res.pagination.cursors.after)
+    eql(res, ['Some Empty Movie'])
+  })
 })

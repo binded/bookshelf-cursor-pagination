@@ -109,12 +109,20 @@ const applyCursor = (qb, cursor, mainTableName, idAttribute) => {
     /* eslint-disable func-names */
     chain.orWhere(function () {
       this.andWhere(function () {
-        this.where(colRef(currentCol), sign, cursorValue)
-        // In PostgreSQL, `where somecol > 'abc'` does not return
-        // rows where somecol is null. We must explicitly include them
-        // with `where somecol is null`
         if (cursorValue !== null) {
-          this.orWhere(colRef(currentCol), 'is', null)
+          this.where(colRef(currentCol), sign, cursorValue)
+          if (sign === '>') {
+            // In PostgreSQL, `where somecol > 'abc'` does not return
+            // rows where somecol is null. We must explicitly include them
+            // with `where somecol is null`
+            this.orWhere(colRef(currentCol), 'is', null)
+          }
+        } else if (sign === '<') {
+          // `col < null` does not work as expected,
+          // we use `IS NOT null` instead
+          this.where(colRef(currentCol), 'is not', cursorValue)
+        } else {
+          this.where(colRef(currentCol), '>', cursorValue)
         }
       })
       visitedCols.forEach((visitedCol, idx) => {
