@@ -102,12 +102,27 @@ const applyCursor = (qb, cursor, mainTableName, idAttribute) => {
     }
     const colRef = (col) => `${col.tableName}.${col.name}`
 
+    // TODO: null cursor needs to be handled specially,
+    // e.g. where somecol > 'someval'
+    // will not show rows where somecol is null
+
     /* eslint-disable func-names */
     chain.orWhere(function () {
-      visitedCols.forEach((visitedCol, idx) => {
-        this.andWhere(colRef(visitedCol), '=', cursor.columnValues[idx])
+      this.andWhere(function () {
+        this.where(colRef(currentCol), sign, cursorValue)
+        // In PostgreSQL, `where somecol > 'abc'` does not return
+        // rows where somecol is null. We must explicitly include them
+        // with `where somecol is null`
+        if (cursorValue !== null) {
+          this.orWhere(colRef(currentCol), 'is', null)
+        }
       })
-      this.andWhere(colRef(currentCol), sign, cursorValue)
+      visitedCols.forEach((visitedCol, idx) => {
+        const colValue = cursor.columnValues[idx]
+        // If column is null, we have to use "IS" instead of "="
+        const operand = colValue === null ? 'is' : '='
+        this.andWhere(colRef(visitedCol), operand, colValue)
+      })
     })
     if (!remainingCols.length) return
     return buildWhere(chain, remainingCols, [...visitedCols, currentCol])
