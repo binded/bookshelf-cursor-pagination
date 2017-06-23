@@ -63,6 +63,9 @@ console.log(result.pagination)
    [ { name: 'manufacturer_id', direction: 'asc', tableName: 'cars' },
      { name: 'description', direction: 'asc', tableName: 'cars' } ] }
 */
+
+// A next() method is also available on the collection to fetch the next
+// set of result
 ```
 
 Example of stable iteration with cursors:
