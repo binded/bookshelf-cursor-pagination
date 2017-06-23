@@ -63,6 +63,9 @@ console.log(result.pagination)
    [ { name: 'manufacturer_id', direction: 'asc', tableName: 'cars' },
      { name: 'description', direction: 'asc', tableName: 'cars' } ] }
 */
+
+// A next() method is also available on the collection to fetch the next
+// set of result
 ```
 
 Example of stable iteration with cursors:
@@ -85,6 +88,23 @@ iter((collection) => {
 })
 ```
 
+This plugin also adds a `forEach` method that takes the same arguments
+as `fethPage` and a callback which is called for every result set.
+
+For example:
+
+```javascript
+const main = async () => {
+  await Car
+    .collection()
+    .orderBy('id')
+    .forEach({ limit: 5 }, async (coll) => {
+      // do something with collection
+    })
+  console.log('iterated over all rows!')
+}
+```
+
 ### Joins and/or .format
 
 `fetchCursorPage` will break if one of the sorted columns is not
@@ -105,7 +125,3 @@ Car.prototype.toCursorValue = function ({ name, tableName }) {
 }
 ```
 
-## TODO
-
-- In addition to `pagination` prop, return `next` and `previous`
-    property that fetch the next/previous result set

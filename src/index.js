@@ -12,7 +12,7 @@ const ensurePositiveIntWithDefault = (val, def) => {
 }
 
 
-const count = (self, origQuery, Model, tableName, idAttribute, limit) => {
+const count = (origQuery, Model, tableName, idAttribute, limit) => {
   const notNeededQueries = [
     'orderByBasic',
     'orderByRaw',
@@ -286,7 +286,7 @@ export default (bookshelf) => {
 
     const paginate = () => {
       // const pageQuery = clone(model.query())
-      const pager = collection
+      const pager = collection.clone()
 
       let extractCursorMetadata
       return pager
@@ -301,14 +301,31 @@ export default (bookshelf) => {
 
     return Promise.all([
       paginate(),
-      count(self, origQuery.clone(), Model, tableName, idAttribute, _limit),
+      count(origQuery.clone(), Model, tableName, idAttribute, _limit),
     ])
     .then(([{ coll, cursors, orderedBy }, metadata]) => {
       // const pageCount = Math.ceil(metadata.rowCount / _limit)
       // const pageData = assign(metadata, { pageCount })
       const hasMore = coll.length === limit
       const pageData = assign(metadata, { hasMore })
+
+
+      const next = () => {
+        if (!hasMore) {
+          return false
+        }
+        const newOptions = options.before ? {
+          ...options,
+          before: cursors.before,
+        } : {
+          ...options,
+          after: cursors.after,
+        }
+        return fetchCursorPage({ self, collection, Model }, newOptions)
+      }
+
       return assign(coll, {
+        next: hasMore ? next : false,
         pagination: {
           ...pageData,
           cursors,
@@ -316,6 +333,16 @@ export default (bookshelf) => {
         },
       })
     })
+  }
+
+  const forEach = async (context, fetchOpts, callback = () => {}) => {
+    let coll
+    coll = await fetchCursorPage(context, fetchOpts)
+    while (true) {
+      if (!coll.next) return
+      await callback(coll)
+      coll = await coll.next()
+    }
   }
 
   bookshelf.Model.prototype.fetchCursorPage = function modelFetchCursorPage(...args) {
@@ -332,6 +359,26 @@ export default (bookshelf) => {
 
   bookshelf.Collection.prototype.fetchCursorPage = function collectionFetchCursorPage(...args) {
     return fetchCursorPage({
+      self: this,
+      Model: this.model,
+      collection: this,
+    }, ...args)
+  }
+
+  bookshelf.Model.prototype.forEach = function modelForEach(...args) {
+    return forEach({
+      self: this,
+      Model: this.constructor,
+      collection: () => this.collection(),
+    }, ...args)
+  }
+
+  bookshelf.Model.forEach = function staticModelForEach(...args) {
+    return this.forge().forEach(...args)
+  }
+
+  bookshelf.Collection.prototype.forEach = function collectionForEach(...args) {
+    return forEach({
       self: this,
       Model: this.model,
       collection: this,
