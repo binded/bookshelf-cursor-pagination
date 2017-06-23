@@ -338,6 +338,8 @@ export default (bookshelf) => {
   const forEach = async (context, fetchOpts, callback = () => {}) => {
     let coll
     coll = await fetchCursorPage(context, fetchOpts)
+    /* eslint-disable no-constant-condition */
+    /* eslint-disable no-await-in-loop */
     while (true) {
       if (!coll.next) return
       await callback(coll)
