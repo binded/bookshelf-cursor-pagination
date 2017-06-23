@@ -141,5 +141,13 @@ describe('Cursor pagination', () => {
         assert.deepEqual(beautify(coll), expectedResults[i])
         i += 1
       })
+
+    await Car.collection()
+      .forEach({ limit: 500 }, coll => {
+        assert.deepEqual(
+          beautify(coll).sort(),
+          expectedResults.reduce((acc, arr) => acc.concat(arr), []).sort(),
+        )
+      })
   })
 })

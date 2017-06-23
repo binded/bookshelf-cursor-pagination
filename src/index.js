@@ -341,8 +341,8 @@ export default (bookshelf) => {
     /* eslint-disable no-constant-condition */
     /* eslint-disable no-await-in-loop */
     while (true) {
-      if (!coll.next) return
       await callback(coll)
+      if (!coll.next) return
       coll = await coll.next()
     }
   }
