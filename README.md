@@ -2,7 +2,7 @@
 
 # bookshelf-cursor-pagination
 
-Bookshelf plugin that implements [cursor based pagination](https://www.sitepoint.com/paginating-real-time-data-cursor-based-pagination/).
+Bookshelf plugin that implements [cursor based pagination](https://www.sitepoint.com/paginating-real-time-data-cursor-based-pagination/) (also known as [keyset pagination](http://use-the-index-luke.com/no-offset)).
 
 ## Install
 
