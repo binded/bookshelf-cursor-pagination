@@ -112,7 +112,7 @@ accessible via `model.get(colName)` (either because the column is not
 returned by the select or because the bookshelf object implements a
 `.format()` method).
 
-In order to avoid this issue, you can implement a `toCursorsValue` on
+In order to avoid this issue, you can implement a `toCursorValue` on
 your model that will handle those edge cases. For example:
 
 ```javascript
